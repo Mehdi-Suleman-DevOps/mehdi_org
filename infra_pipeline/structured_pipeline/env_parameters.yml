@@ -25,44 +25,66 @@ stages:
 # 1. Scan Git history for secrets
 - stage: gitleaks
   displayName: Gitleaks Secret Scan
-  templates: jobs/gitleaks_scan.yml
+  jobs:
+    -   template: jobs/gitleaks_scan.yml
+        parameters:
+          environment: ${{ parameters.environment }}
 
 # 2. Scan Terraform security configuration
 - stage: tfsec
   displayName: tfsec Security Scan
-  templates: jobs/tfsec_scan.yml
+  jobs:
+    -   template: jobs/tfsec_scan.yml
+        parameters:
+          environment: ${{ parameters.environment }}
 
 # 3. Check Terraform code quality
 - stage: tflint
   displayName: TFLint Scan
-  templates: jobs/tflint_scan.yml
+  jobs:
+    - template: jobs/tflint_scan.yml
+      parameters:
+        environment: ${{ parameters.environment }}
 
 # 4. Install Terraform
 - stage: terraform_install
   displayName: Install Terraform
-  templates: jobs/terraform_install.yml
-
+  jobs:
+    - template: jobs/terraform_install.yml
+      parameters:
+        environment: ${{ parameters.environment }}
 # 5. Initialize and validate Terraform
 - stage: terraform_init_validate
   displayName: Terraform Init and Validate
-  templates: jobs/terraform-init-validate.yml
-
+  jobs:
+    - template: jobs/terraform-init-validate.yml
+      parameters:
+        environment: ${{ parameters.environment }}
+    
 # 6. Generate and publish a saved Terraform plan
 - stage: terraform_plan
   dependsOn: terraform_init_validate
   displayName: Terraform Plan
-  templates: jobs/terraform-init-plan.yml
-
+  jobs:
+    - template: jobs/terraform-plan.yml
+      parameters:
+        environment: ${{ parameters.environment }}
 # 7. Require approval on main before applying
 - stage: manual_approval
   displayName: Manual Approval
   dependsOn: terraform_plan
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  templates: jobs/manual_approval.yml
-  
+  jobs:
+    - template: jobs/production-approval.yml
+      parameters:
+        environment: ${{ parameters.environment }}
+          
 # 8. Apply the exact saved plan after approval
 - stage: terraform_apply
   displayName: Terraform Apply
   dependsOn: manual_approval
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  templates: jobs/terraform-apply.yml
+  jobs:
+    - template: jobs/terraform-apply.yml
+      parameters:
+        environment: ${{ parameters.environment }}
